@@ -129,7 +129,7 @@ export const postNir = functions.https.onCall(async (data, context) => {
                     valueSubunits: valueSubunits,
                     sourceDoc: { docType: 'NIR', docId: docId },
                     createdAt: now,
-                    createdBy: context.auth.uid,
+                    createdBy: context.auth?.uid,
                     documentDate: docData.documentDate,
                     idempotencyKey: `${docId}_${line.id}`
                 };
@@ -153,7 +153,7 @@ export const postNir = functions.https.onCall(async (data, context) => {
                 status: 'POSTED',
                 postedAt: now,
                 updatedAt: now,
-                updatedBy: context.auth.uid
+                updatedBy: context.auth?.uid
             });
 
             return { success: true, alreadyPosted: false };

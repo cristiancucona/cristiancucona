@@ -109,7 +109,7 @@ export const postPrepProduction = functions.https.onCall(async (data, context) =
                         lotAllocations: allocations,
                         sourceDoc: { docType: 'PREP_PRODUCTION', docId },
                         createdAt: now,
-                        createdBy: context.auth.uid,
+                        createdBy: context.auth?.uid,
                         documentDate: docData.documentDate,
                         idempotencyKey: `idem_prep_${docId}_out_${line.id}`
                     }
@@ -142,10 +142,10 @@ export const postPrepProduction = functions.https.onCall(async (data, context) =
                     itemId: producedItemId,
                     locationId,
                     qtyBase: producedQtyBase,
-                    valueSubunits: lotValueOnHandSubunits, // Exact financial equivalent
+                    valueSubunits: totalValueSubunits, // Exact financial equivalent
                     sourceDoc: { docType: 'PREP_PRODUCTION', docId },
                     createdAt: now,
-                    createdBy: context.auth.uid,
+                    createdBy: context.auth?.uid,
                     documentDate: docData.documentDate,
                     idempotencyKey: `idem_prep_${docId}_in`
                 }

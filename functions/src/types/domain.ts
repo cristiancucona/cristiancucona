@@ -1,6 +1,7 @@
 // src/types/domain.ts
 
 export type MovementType =
+    | 'RECEIPT_IN'
     | 'RECEIVE'
     | 'CONSUME_SOLD'
     | 'CONSUME_COMP'
@@ -11,11 +12,16 @@ export type MovementType =
     | 'PREP_IN'
     | 'YIELD_OUT'
     | 'YIELD_IN'
-export type MovementType = 'RECEIPT_IN' | 'TRANSFER_IN' | 'TRANSFER_OUT' | 'PREP_IN' | 'PREP_OUT' | 'YIELD_IN' | 'YIELD_OUT' | 'YIELD_LOSS' | 'CONSUMPTION_OUT' | 'WASTE_OUT' | 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT';
+    | 'YIELD_LOSS'
+    | 'CONSUMPTION_OUT'
+    | 'WASTE_OUT'
+    | 'ADJUSTMENT_IN'
+    | 'ADJUSTMENT_OUT';
 
-export type DocType = 'RECEIPT' | 'TRANSFER' | 'PREP_PRODUCTION' | 'YIELD_TRANSFORM' | 'INVENTORY_COUNT' | 'CONSUMPTION' | 'WASTE';
+export type DocType = 'NIR' | 'RECEIPT' | 'TRANSFER' | 'PREP_PRODUCTION' | 'YIELD_TRANSFORM' | 'INVENTORY_COUNT' | 'CONSUMPTION' | 'WASTE';
 
-export type DocStatus = 'DRAFT' | 'COUNTING' | 'LOCKED' | 'PENDING_APPROVAL' | 'POSTED' | 'CANCELLED';
+export type DocumentStatus = 'DRAFT' | 'COUNTING' | 'LOCKED' | 'PENDING_APPROVAL' | 'POSTED' | 'CANCELLED';
+export type DocStatus = DocumentStatus;
 
 // -----------------------------------------------------------------------------
 // Core Ledger Entities

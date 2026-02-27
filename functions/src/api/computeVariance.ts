@@ -113,7 +113,7 @@ export const computeVariance = functions.https.onCall(async (data, context) => {
             // 1 doc update + 1 final status write (buffer)
             writesPlanned += 2;
 
-            let totalAbsVarianceSubunits = docData.totalVarianceValueSubunits || 0;
+            let totalAbsVarianceSubunits = Number((docData as any).totalVarianceValueSubunits) || 0;
             let processedLinesCount = 0;
 
             for (const line of batchLines) {
@@ -164,7 +164,7 @@ export const computeVariance = functions.https.onCall(async (data, context) => {
                             lotAllocations: allocations,
                             sourceDoc: { docType: 'INVENTORY_COUNT', docId },
                             createdAt: now,
-                            createdBy: context.auth.uid,
+                            createdBy: context.auth?.uid,
                             documentDate: docData.documentDate,
                             idempotencyKey: `idem_count_${docId}_out_${line.id}`
                         }
@@ -223,7 +223,7 @@ export const computeVariance = functions.https.onCall(async (data, context) => {
                             valueSubunits: gainValueSubunits,
                             sourceDoc: { docType: 'INVENTORY_COUNT', docId },
                             createdAt: now,
-                            createdBy: context.auth.uid,
+                            createdBy: context.auth?.uid,
                             documentDate: docData.documentDate,
                             idempotencyKey: `idem_count_${docId}_in_${line.id}`
                         }
@@ -239,8 +239,8 @@ export const computeVariance = functions.https.onCall(async (data, context) => {
             }
 
             //THRESHOLD LOGIC 
-            const role = context.auth.token.role;
-            const isAdmin = context.auth.token.admin === true;
+            const role = context.auth?.token?.role;
+            const isAdmin = context.auth?.token?.admin === true;
             const isAuthorizedToApprove = role === 'OWNER' || role === 'GM' || isAdmin;
 
             if (totalAbsVarianceSubunits > VARIANCE_THRESHOLD_SUBUNITS && !isAuthorizedToApprove) {
