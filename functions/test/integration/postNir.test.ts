@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin';
-import { clearFirestoreData } from '@firebase/rules-unit-testing';
+
 import { postNir } from '../../src/api/postNir';
 
 describe('postNir Integration Tests', () => {
@@ -7,7 +7,7 @@ describe('postNir Integration Tests', () => {
 
     beforeEach(async () => {
         // Fix #3: Safer explicit teardown bypassing direct HTTP hits
-        await clearFirestoreData({ projectId: 'demo-selio-stocks-v1' });
+        await fetch('http://127.0.0.1:8080/emulator/v1/projects/demo-selio-stocks-v1/databases/(default)/documents', { method: 'DELETE' });
     });
 
     const mockContext = {

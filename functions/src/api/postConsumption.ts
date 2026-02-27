@@ -122,7 +122,7 @@ export const postConsumption = functions.https.onCall(async (data, context) => {
                         sourceDoc: { docType: 'CONSUMPTION', docId: docId },
                         reasonCode: line.reasonCode,
                         createdAt: now,
-                        createdBy: context.auth.uid,
+                        createdBy: context.auth?.uid,
                         documentDate: docData.documentDate,
                         idempotencyKey: `${docId}_${line.id}`
                     }
@@ -149,7 +149,7 @@ export const postConsumption = functions.https.onCall(async (data, context) => {
                 status: 'POSTED',
                 postedAt: now,
                 updatedAt: now,
-                updatedBy: context.auth.uid
+                updatedBy: context.auth?.uid
             });
 
             return { success: true, alreadyPosted: false };

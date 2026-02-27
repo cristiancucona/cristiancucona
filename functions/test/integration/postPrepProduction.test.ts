@@ -1,12 +1,12 @@
 import * as admin from 'firebase-admin';
-import { clearFirestoreData } from '@firebase/rules-unit-testing';
+
 import { postPrepProduction } from '../../src/api/postPrepProduction';
 
 describe('postPrepProduction Integration Tests', () => {
     const db = admin.firestore();
 
     beforeEach(async () => {
-        await clearFirestoreData({ projectId: 'demo-selio-stocks-v1' });
+        await fetch('http://127.0.0.1:8080/emulator/v1/projects/demo-selio-stocks-v1/databases/(default)/documents', { method: 'DELETE' });
     });
 
     const mockContext = { auth: { uid: 'u_tester' } } as any;

@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin';
-import { clearFirestoreData } from '@firebase/rules-unit-testing';
+
 import { createInventoryCount } from '../../src/api/createInventoryCount';
 import { lockInventoryCount } from '../../src/api/lockInventoryCount';
 import { computeVariance } from '../../src/api/computeVariance';
@@ -8,7 +8,7 @@ describe('Sprint 4: Inventory Count & Variance Integration Tests', () => {
     const db = admin.firestore();
 
     beforeEach(async () => {
-        await clearFirestoreData({ projectId: 'demo-selio-stocks-v1' });
+        await fetch('http://127.0.0.1:8080/emulator/v1/projects/demo-selio-stocks-v1/databases/(default)/documents', { method: 'DELETE' });
     });
 
     const mockAdminContext = {
