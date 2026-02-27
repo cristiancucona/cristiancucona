@@ -7,7 +7,7 @@ export default function DevAuthPanel() {
     const [user, setUser] = useState<User | null>(null);
     const [role, setRole] = useState<string>('NONE');
     const [email, setEmail] = useState('admin@selio.local');
-    const [password, setPassword] = useState('password');
+    const [password] = useState('password');
     const [selectedRole, setSelectedRole] = useState('OWNER');
     const [loading, setLoading] = useState(true);
 

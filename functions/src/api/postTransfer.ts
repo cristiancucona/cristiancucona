@@ -119,7 +119,7 @@ export const postTransfer = functions.https.onCall(async (data, context) => {
                         lotAllocations: allocations,
                         sourceDoc: { docType: 'TRANSFER', docId },
                         createdAt: now,
-                        createdBy: context.auth.uid,
+                        createdBy: context.auth?.uid || 'UNKNOWN_USER',
                         documentDate: docData.documentDate,
                         idempotencyKey: `idem_trx_${docId}_out_${line.id}`
                     }
@@ -161,7 +161,7 @@ export const postTransfer = functions.https.onCall(async (data, context) => {
                             valueSubunits: alloc.valueSubunits,
                             sourceDoc: { docType: 'TRANSFER', docId },
                             createdAt: now,
-                            createdBy: context.auth.uid,
+                            createdBy: context.auth?.uid || 'UNKNOWN_USER',
                             documentDate: docData.documentDate,
                             idempotencyKey: `idem_trx_${docId}_in_${line.id}_${i}`
                         }

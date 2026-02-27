@@ -164,7 +164,7 @@ export const computeVariance = functions.https.onCall(async (data, context) => {
                             lotAllocations: allocations,
                             sourceDoc: { docType: 'INVENTORY_COUNT', docId },
                             createdAt: now,
-                            createdBy: context.auth?.uid,
+                            createdBy: context.auth?.uid || 'UNKNOWN_USER',
                             documentDate: docData.documentDate,
                             idempotencyKey: `idem_count_${docId}_out_${line.id}`
                         }
@@ -223,7 +223,7 @@ export const computeVariance = functions.https.onCall(async (data, context) => {
                             valueSubunits: gainValueSubunits,
                             sourceDoc: { docType: 'INVENTORY_COUNT', docId },
                             createdAt: now,
-                            createdBy: context.auth?.uid,
+                            createdBy: context.auth?.uid || 'UNKNOWN_USER',
                             documentDate: docData.documentDate,
                             idempotencyKey: `idem_count_${docId}_in_${line.id}`
                         }

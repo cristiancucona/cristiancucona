@@ -109,7 +109,8 @@ export const postNir = functions.https.onCall(async (data, context) => {
                     locationId: locationId,
                     vendorId: vendorId, // Rec #2: VendorId footprint embedded mapping
                     createdAt: now,
-                    unitCostSubunitsPerBase: unitCostSubunitsPerBase,
+                    unitCostFloorSubunitsPerBase: unitCostSubunitsPerBase,
+                    residualUnitsOnHand: 0,
                     qtyOnHandBase: line.qtyBase,
                     sourceDoc: { docType: 'NIR', docId: docId },
                     status: 'ACTIVE'
@@ -129,7 +130,7 @@ export const postNir = functions.https.onCall(async (data, context) => {
                     valueSubunits: valueSubunits,
                     sourceDoc: { docType: 'NIR', docId: docId },
                     createdAt: now,
-                    createdBy: context.auth?.uid,
+                    createdBy: context.auth?.uid || 'UNKNOWN_USER',
                     documentDate: docData.documentDate,
                     idempotencyKey: `${docId}_${line.id}`
                 };
@@ -153,7 +154,7 @@ export const postNir = functions.https.onCall(async (data, context) => {
                 status: 'POSTED',
                 postedAt: now,
                 updatedAt: now,
-                updatedBy: context.auth?.uid
+                updatedBy: context.auth?.uid || 'UNKNOWN_USER'
             });
 
             return { success: true, alreadyPosted: false };

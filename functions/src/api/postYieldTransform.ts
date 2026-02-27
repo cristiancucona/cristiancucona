@@ -99,7 +99,7 @@ export const postYieldTransform = functions.https.onCall(async (data, context) =
                     lotAllocations: allocations,
                     sourceDoc: { docType: 'YIELD_TRANSFORM', docId },
                     createdAt: now,
-                    createdBy: context.auth?.uid,
+                    createdBy: context.auth?.uid || 'UNKNOWN_USER',
                     documentDate: docData.documentDate,
                     idempotencyKey: `idem_yield_${docId}_out`
                 }
@@ -131,10 +131,10 @@ export const postYieldTransform = functions.https.onCall(async (data, context) =
                     itemId: targetItemId,
                     locationId,
                     qtyBase: usableQtyBase, // Positive
-                    valueSubunits: lotValuationSubunits, // Transferred 100% of financial cost
+                    valueSubunits: totalIngestedValueSubunits, // Transferred 100% of financial cost
                     sourceDoc: { docType: 'YIELD_TRANSFORM', docId },
                     createdAt: now,
-                    createdBy: context.auth?.uid,
+                    createdBy: context.auth?.uid || 'UNKNOWN_USER',
                     documentDate: docData.documentDate,
                     idempotencyKey: `idem_yield_${docId}_in`
                 }
@@ -153,7 +153,7 @@ export const postYieldTransform = functions.https.onCall(async (data, context) =
                         valueSubunits: 0, // CRITICAL ASSUMPTION RULE: 0 value leakage
                         sourceDoc: { docType: 'YIELD_TRANSFORM', docId },
                         createdAt: now,
-                        createdBy: context.auth?.uid,
+                        createdBy: context.auth?.uid || 'UNKNOWN_USER',
                         documentDate: docData.documentDate,
                         idempotencyKey: `idem_yield_${docId}_loss`
                     }
