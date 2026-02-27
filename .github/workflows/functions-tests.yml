@@ -30,15 +30,21 @@ jobs:
         with:
           node-version: "18"
           cache: "pnpm"
-          cache-dependency-path: functions/package.json # fallback locally if lockfile is missing
+          cache-dependency-path: functions/package.json
 
       - name: Install deps
         run: pnpm install
 
-      - name: Run unit + integration tests
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Run unit + integration tests with Emulator
         env:
           FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
           FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
           FIREBASE_STORAGE_EMULATOR_HOST: 127.0.0.1:9199
           FUNCTIONS_EMULATOR: "true"
-        run: pnpm test
+        run: |
+          # Go up to the root folder because firebase.json is there
+          cd ..
+          firebase emulators:exec --project demo-selio-stocks-v1 'cd functions && pnpm test'
