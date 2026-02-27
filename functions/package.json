@@ -3,7 +3,7 @@
     "scripts": {
         "lint": "eslint --ext .js,.ts .",
         "build": "tsc",
-        "test": "jest",
+        "test": "jest --runInBand",
         "test:emulator": "firebase emulators:exec 'jest'"
     },
     "engines": {

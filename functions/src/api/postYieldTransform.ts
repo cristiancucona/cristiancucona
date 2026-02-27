@@ -131,7 +131,7 @@ export const postYieldTransform = functions.https.onCall(async (data, context) =
                     itemId: targetItemId,
                     locationId,
                     qtyBase: usableQtyBase, // Positive
-                    valueSubunits: totalIngestedValueSubunits, // Transferred 100% of financial cost
+                    valueSubunits: totalValueSubunits, // Transferred 100% of financial cost
                     sourceDoc: { docType: 'YIELD_TRANSFORM', docId },
                     createdAt: now,
                     createdBy: context.auth?.uid || 'UNKNOWN_USER',

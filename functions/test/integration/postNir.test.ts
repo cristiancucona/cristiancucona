@@ -60,12 +60,12 @@ describe('postNir Integration Tests', () => {
 
         const waterLot = lotsSnap.docs.find(d => d.data().itemId === 'it_water')?.data();
         expect(waterLot?.qtyOnHandBase).toBe(50);
-        expect(waterLot?.unitCostSubunitsPerBase).toBe(10);
+        expect(waterLot?.unitCostFloorSubunitsPerBase).toBe(10);
         expect(waterLot?.locationId).toBe(locationId);
 
         const flourLot = lotsSnap.docs.find(d => d.data().itemId === 'it_flour')?.data();
         expect(flourLot?.qtyOnHandBase).toBe(100);
-        expect(flourLot?.unitCostSubunitsPerBase).toBe(5);
+        expect(flourLot?.unitCostFloorSubunitsPerBase).toBe(5);
 
         // Assert: Movements Created mapped exact values
         const movementsSnap = await db.collection('movements').where('sourceDoc.docId', '==', docId).get();

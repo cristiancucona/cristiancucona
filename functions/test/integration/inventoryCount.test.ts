@@ -136,8 +136,8 @@ describe('Sprint 4: Inventory Count & Variance Integration Tests', () => {
         const docId = 'doc_count_budget_limit';
         const itemId = 'it_screws';
 
-        // Seed 20 tiny lots 
-        for (let i = 1; i <= 20; i++) {
+        // Seed 450 tiny lots 
+        for (let i = 1; i <= 450; i++) {
             await db.collection('lots').doc(`lot_screws_${i}`).set({
                 itemId, locationId,
                 qtyOnHandBase: 1,
