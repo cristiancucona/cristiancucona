@@ -28,6 +28,7 @@ describe('postConsumption Integration Tests', () => {
             locationId,
             qtyOnHandBase: 50,
             unitCostFloorSubunitsPerBase: 10,
+            residualUnitsOnHand: 0,
             createdAt: '2026-01-01T10:00:00Z',
             sourceDoc: { docType: 'NIR', docId: 'nir_1' }
         });
@@ -38,6 +39,7 @@ describe('postConsumption Integration Tests', () => {
             locationId,
             qtyOnHandBase: 100,
             unitCostFloorSubunitsPerBase: 15,
+            residualUnitsOnHand: 0,
             createdAt: '2026-01-02T10:00:00Z',
             sourceDoc: { docType: 'NIR', docId: 'nir_2' }
         });
@@ -97,7 +99,7 @@ describe('postConsumption Integration Tests', () => {
         const docId = 'doc_cons_2';
         await db.collection('lots').doc('lot_003').set({
             itemId: 'it_oil', locationId: 'loc_k', qtyOnHandBase: 50,
-            unitCostFloorSubunitsPerBase: 5, createdAt: '2026-01-01T10:00:00Z', sourceDoc: { docType: 'NIR', docId: 'a' }
+            unitCostFloorSubunitsPerBase: 5, residualUnitsOnHand: 0, createdAt: '2026-01-01T10:00:00Z', sourceDoc: { docType: 'NIR', docId: 'a' }
         });
 
         await db.collection('documents').doc(docId).set({
@@ -122,7 +124,7 @@ describe('postConsumption Integration Tests', () => {
     it('3. Idempotency enforced (Post twice -> no duplicate movements)', async () => {
         const docId = 'doc_cons_3';
         await db.collection('lots').doc('lot_004').set({
-            itemId: 'it_salt', locationId: 'loc_k', qtyOnHandBase: 100, unitCostFloorSubunitsPerBase: 1,
+            itemId: 'it_salt', locationId: 'loc_k', qtyOnHandBase: 100, unitCostFloorSubunitsPerBase: 1, residualUnitsOnHand: 0,
             createdAt: '2026-01-01T10:00:00Z', sourceDoc: { docType: 'NIR', docId: '1' }
         });
 

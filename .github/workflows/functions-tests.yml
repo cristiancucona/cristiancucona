@@ -32,8 +32,10 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: functions/package.json
 
-      - name: Install deps
-        run: pnpm install
+      - name: Install deps and build
+        run: |
+          pnpm install
+          pnpm run build
 
       - name: Install Firebase CLI
         run: npm install -g firebase-tools

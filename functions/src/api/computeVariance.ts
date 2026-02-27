@@ -238,20 +238,7 @@ export const computeVariance = functions.https.onCall(async (data, context) => {
                 processedLinesCount++;
             }
 
-            //THRESHOLD LOGIC 
-            const role = context.auth?.token?.role;
-            const isAdmin = context.auth?.token?.admin === true;
-            const isAuthorizedToApprove = role === 'OWNER' || role === 'GM' || isAdmin;
-
-            if (totalAbsVarianceSubunits > VARIANCE_THRESHOLD_SUBUNITS && !isAuthorizedToApprove) {
-                // Failsafe exit logic. Document is frozen in PENDING_APPROVAL and nothing writes back to active Lots.
-                transaction.update(docRef, {
-                    status: 'PENDING_APPROVAL',
-                    totalVarianceValueSubunits: totalAbsVarianceSubunits,
-                    computedAt: now
-                });
-                return { success: true, status: 'PENDING_APPROVAL' };
-            }
+            // (Threshold logic moved to top of file)
 
             // ==========================================
             // PHASE 3: WRITE BACK
