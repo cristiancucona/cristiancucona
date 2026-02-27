@@ -3,7 +3,7 @@ import * as admin from 'firebase-admin';
 import { allocateFifoShadows, ShadowLot } from '../ledger/fifo';
 import { Document, Movement, Lot } from '../types/domain';
 
-const VARIANCE_THRESHOLD_SUBUNITS = 50000; // Manager Approval required for >$500 abs variance
+const VARIANCE_THRESHOLD_SUBUNITS = 50000;
 
 export const computeVariance = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
@@ -21,9 +21,6 @@ export const computeVariance = functions.https.onCall(async (data, context) => {
 
     try {
         return await db.runTransaction(async (transaction) => {
-            // ==========================================
-            // PHASE 1: READ EVERYTHING
-            // ==========================================
             const docSnap = await transaction.get(docRef);
             if (!docSnap.exists) {
                 throw new functions.https.HttpsError('not-found', 'Document not found.');
@@ -36,10 +33,9 @@ export const computeVariance = functions.https.onCall(async (data, context) => {
             }
 
             if (docData.status === 'POSTED') {
-                return { success: true, alreadyPosted: true };
+                return { success: true, status: 'POSTED', alreadyPosted: true };
             }
 
-            // Must only run computation on LOCKED or PENDING_APPROVAL formats
             if (docData.status !== 'LOCKED' && docData.status !== 'PENDING_APPROVAL') {
                 throw new functions.https.HttpsError('failed-precondition', `Cannot compute variance for document in status: ${docData.status}`);
             }
@@ -51,105 +47,126 @@ export const computeVariance = functions.https.onCall(async (data, context) => {
 
             const linesSnap = await transaction.get(linesRef);
             if (linesSnap.empty) {
-                throw new functions.https.HttpsError('failed-precondition', 'Document has no lines.');
+                return { success: true, status: docData.status, allLinesProcessed: true };
             }
 
             const lines = linesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
 
-            // Enforce safe 150 line batch to prevent hitting 500 max writes
-            // User must continue triggering computation on the doc until POSTED
             const unprocessedLines = lines.filter(l => l.varianceValueSubunits === undefined);
             const batchLines = unprocessedLines.slice(0, 150);
 
             if (batchLines.length === 0) {
-                // Failsafe. If all lines processed but status is somewhat not completed
-                return { success: true, allLinesProcessed: true };
+                return { success: true, status: docData.status, allLinesProcessed: true };
             }
 
-            const itemIds = Array.from(new Set(batchLines.map(line => line.itemId)));
-
-            const lotsQuery = db.collection('lots')
-                .where('locationId', '==', locationId);
-            // Cannot filter strictly by qtyOnHandBase > 0 because we need active lots for POSITIVE variance cost fallback
-
+            const lotsQuery = db.collection('lots').where('locationId', '==', locationId);
             const lotsSnap = await transaction.get(lotsQuery);
 
-            // ==========================================
-            // PHASE 2: IN-MEMORY COMPUTATION (Shadows)
-            // ==========================================
-            const itemIdsSet = new Set(itemIds);
+            const allItemIds = Array.from(new Set(lines.map(line => line.itemId)));
+            const allItemIdsSet = new Set(allItemIds);
 
-            const shadowLots: ShadowLot[] = lotsSnap.docs
+            const shadowLotsAll: ShadowLot[] = lotsSnap.docs
                 .map(doc => ({
                     id: doc.id,
                     ref: doc.ref,
                     ...doc.data() as any
                 }))
-                .filter(l => itemIdsSet.has(l.itemId))
-                // Sort by time
-                .sort((a, b) => {
-                    const timeA = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : (a.createdAt as any).toMillis?.() || 0;
-                    const timeB = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : (b.createdAt as any).toMillis?.() || 0;
-                    return timeB - timeA; // Descending, newest first
-                });
+                .filter(l => allItemIdsSet.has(l.itemId));
 
-            // Build deterministic baseline cost map
             const baselineCostMap = new Map<string, number>();
-            for (const lot of shadowLots) {
-                // shadowLots is descending by date, so the first match per item is the newest
+            const shadowLotsAllDescending = [...shadowLotsAll].sort((a, b) => {
+                const timeA = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : (a.createdAt as any).toMillis?.() || 0;
+                const timeB = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : (b.createdAt as any).toMillis?.() || 0;
+                return timeB - timeA;
+            });
+
+            for (const lot of shadowLotsAllDescending) {
                 if (!baselineCostMap.has(lot.itemId)) {
                     baselineCostMap.set(lot.itemId, lot.unitCostFloorSubunitsPerBase);
                 }
             }
 
-            const originalLotQtys = new Map<string, number>(shadowLots.map(l => [l.id, l.qtyOnHandBase]));
+            let totalAbsVarianceSubunits = Number((docData as any).totalVarianceValueSubunits) || 0;
+            const now = new Date().toISOString();
+
+            let projectedTotalAbsVariance = totalAbsVarianceSubunits;
+            if (!projectedTotalAbsVariance) {
+                const dryRunShadows: ShadowLot[] = shadowLotsAll.map(l => ({ ...l }));
+                for (const line of lines) {
+                    const vq = line.varianceQtyBase || 0;
+                    if (vq < 0) {
+                        const shrink = Math.abs(vq);
+                        const active = dryRunShadows
+                            .filter(l => l.itemId === line.itemId && l.qtyOnHandBase > 0)
+                            .sort((a, b) => {
+                                const timeA = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : 0;
+                                const timeB = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : 0;
+                                return timeA - timeB;
+                            });
+                        const { totalValueSubunits } = allocateFifoShadows(active, line.itemId, locationId, shrink);
+                        projectedTotalAbsVariance += totalValueSubunits;
+                    } else if (vq > 0) {
+                        const bc = baselineCostMap.get(line.itemId) || 0;
+                        projectedTotalAbsVariance += vq * bc;
+                    }
+                }
+            }
+
+            const role = context.auth.token?.role;
+            const isAdmin = context.auth.token?.admin === true;
+            const isAuthorizedToApprove = role === 'OWNER' || role === 'GM' || isAdmin;
+
+            if (projectedTotalAbsVariance > VARIANCE_THRESHOLD_SUBUNITS && !isAuthorizedToApprove) {
+                transaction.update(docRef, {
+                    status: 'PENDING_APPROVAL',
+                    totalVarianceValueSubunits: projectedTotalAbsVariance,
+                    computedAt: now
+                });
+                return { success: true, status: 'PENDING_APPROVAL' };
+            }
+
+            const batchItemIdsSet = new Set(batchLines.map(line => line.itemId));
+            const shadowLotsBatch = shadowLotsAll.filter(l => batchItemIdsSet.has(l.itemId));
+            const originalLotQtys = new Map<string, number>(shadowLotsBatch.map(l => [l.id, l.qtyOnHandBase]));
 
             const movementsToWrite: { ref: admin.firestore.DocumentReference; data: Movement }[] = [];
             const lotsToCreate: { ref: admin.firestore.DocumentReference; data: Lot }[] = [];
-            const now = new Date().toISOString();
 
             const WRITE_BUDGET = 450;
-            let writesPlanned = 0;
-            // 1 doc update + 1 final status write (buffer)
-            writesPlanned += 2;
-
-            let totalAbsVarianceSubunits = Number((docData as any).totalVarianceValueSubunits) || 0;
+            let writesPlanned = 2; // doc + status buffer
             let processedLinesCount = 0;
 
             for (const line of batchLines) {
-                // Estimate baseline writes for this line:
-                // 1 for line update (varianceValueSubunits)
                 let lineWritesEstimate = 1;
-
                 const varianceQty = line.varianceQtyBase;
 
                 if (varianceQty === undefined || varianceQty === null || !Number.isInteger(varianceQty)) {
-                    throw new functions.https.HttpsError('invalid-argument', `Line ${line.id} missing valid integer varianceQtyBase. Must run lockInventoryCount first.`);
+                    throw new functions.https.HttpsError('invalid-argument', `Line ${line.id} missing valid integer varianceQtyBase.`);
                 }
 
                 if (varianceQty === 0) {
                     if (writesPlanned + lineWritesEstimate > WRITE_BUDGET) break;
-                    transaction.update(linesRef.doc(line.id), { varianceValueSubunits: 0 }); // Mark processed
+                    transaction.update(linesRef.doc(line.id), { varianceValueSubunits: 0 });
                     writesPlanned += lineWritesEstimate;
                     processedLinesCount++;
-                    continue; // Perfect count
+                    continue;
                 }
 
                 if (varianceQty < 0) {
-                    // SHRINKAGE (Negative Variance)
-                    // Action: EXACT Lot Value FIFO Consumption
                     const shrinkAmount = Math.abs(varianceQty);
-                    const activeShadows = shadowLots.filter(l => l.itemId === line.itemId && l.qtyOnHandBase > 0);
-                    const { totalValueSubunits, allocations } = allocateFifoShadows(activeShadows, line.itemId, locationId, shrinkAmount);
+                    const activeShadows = shadowLotsBatch.filter(l => l.itemId === line.itemId && l.qtyOnHandBase > 0).sort((a, b) => {
+                        const timeA = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : 0;
+                        const timeB = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : 0;
+                        return timeA - timeB;
+                    });
 
-                    // Estimate: 1 movement + N lot updates
+                    const clonedShadows = activeShadows.map(l => ({ ...l }));
+                    const { totalValueSubunits, allocations } = allocateFifoShadows(clonedShadows, line.itemId, locationId, shrinkAmount);
+
                     lineWritesEstimate += 1 + allocations.length;
+                    if (writesPlanned + lineWritesEstimate > WRITE_BUDGET) break;
 
-                    if (writesPlanned + lineWritesEstimate > WRITE_BUDGET) {
-                        // Reached budget bound. Break before mutating in-memory shadows
-                        break;
-                    }
-
+                    allocateFifoShadows(activeShadows, line.itemId, locationId, shrinkAmount);
                     totalAbsVarianceSubunits += totalValueSubunits;
 
                     const movementOutRef = db.collection('movements').doc();
@@ -157,45 +174,34 @@ export const computeVariance = functions.https.onCall(async (data, context) => {
                         ref: movementOutRef,
                         data: {
                             type: 'ADJUSTMENT_OUT',
-                            itemId: line.itemId, // Fix
+                            itemId: line.itemId,
                             locationId,
                             qtyBase: -shrinkAmount,
                             valueSubunits: totalValueSubunits,
                             lotAllocations: allocations,
                             sourceDoc: { docType: 'INVENTORY_COUNT', docId },
                             createdAt: now,
-                            createdBy: context.auth?.uid || 'UNKNOWN_USER',
+                            createdBy: context.auth.uid,
                             documentDate: docData.documentDate,
                             idempotencyKey: `idem_count_${docId}_out_${line.id}`
                         }
                     });
-                    // Save explicit loss to the line reference
                     transaction.update(linesRef.doc(line.id), {
                         varianceValueSubunits: -totalValueSubunits
                     });
 
                 } else if (varianceQty > 0) {
-                    // POSITIVE VARIANCE (Stock Found)
-                    // Action: EXACT Lot Value Generation based on newest lot price
-
-                    // Estimate: 1 movement + 1 lot create
                     lineWritesEstimate += 2;
-
-                    if (writesPlanned + lineWritesEstimate > WRITE_BUDGET) {
-                        break;
-                    }
+                    if (writesPlanned + lineWritesEstimate > WRITE_BUDGET) break;
 
                     const baselineCost = baselineCostMap.get(line.itemId);
                     if (baselineCost === undefined || baselineCost === null) {
-                        // User explicitly requested we fail fast rather than diluting 0 cost
-                        throw new functions.https.HttpsError('failed-precondition', `Cannot process positive variance for Item ${line.itemId} as no historical Lot Floor Cost was found. You must establish initial cost basis (e.g. Receipt) before counting new found stock.`);
+                        throw new functions.https.HttpsError('failed-precondition', `Cannot process positive variance for Item ${line.itemId} as no historical Lot Floor Cost was found.`);
                     }
 
                     const gainValueSubunits = varianceQty * baselineCost;
-
                     totalAbsVarianceSubunits += gainValueSubunits;
 
-                    // Create newly established positive lot seamlessly
                     const targetLotRef = db.collection('lots').doc();
                     lotsToCreate.push({
                         ref: targetLotRef,
@@ -204,14 +210,13 @@ export const computeVariance = functions.https.onCall(async (data, context) => {
                             locationId,
                             createdAt: now,
                             unitCostFloorSubunitsPerBase: baselineCost,
-                            residualUnitsOnHand: 0, // No fractionals on generated stock
+                            residualUnitsOnHand: 0,
                             qtyOnHandBase: varianceQty,
                             sourceDoc: { docType: 'INVENTORY_COUNT', docId },
                             status: 'ACTIVE'
                         }
                     });
 
-                    // Log IN adjustment natively matched
                     const movementInRef = db.collection('movements').doc();
                     movementsToWrite.push({
                         ref: movementInRef,
@@ -219,11 +224,11 @@ export const computeVariance = functions.https.onCall(async (data, context) => {
                             type: 'ADJUSTMENT_IN',
                             itemId: line.itemId,
                             locationId,
-                            qtyBase: varianceQty, // Positive Gain
+                            qtyBase: varianceQty,
                             valueSubunits: gainValueSubunits,
                             sourceDoc: { docType: 'INVENTORY_COUNT', docId },
                             createdAt: now,
-                            createdBy: context.auth?.uid || 'UNKNOWN_USER',
+                            createdBy: context.auth.uid,
                             documentDate: docData.documentDate,
                             idempotencyKey: `idem_count_${docId}_in_${line.id}`
                         }
@@ -238,14 +243,8 @@ export const computeVariance = functions.https.onCall(async (data, context) => {
                 processedLinesCount++;
             }
 
-            // (Threshold logic moved to top of file)
-
-            // ==========================================
-            // PHASE 3: WRITE BACK
-            // ==========================================
-            for (const sl of shadowLots) {
+            for (const sl of shadowLotsBatch) {
                 const originalQty = originalLotQtys.get(sl.id);
-                // we check original against active so we don't accidentally resurrect purely for cost-reads
                 if (sl.qtyOnHandBase !== originalQty) {
                     transaction.update(sl.ref, {
                         qtyOnHandBase: sl.qtyOnHandBase,
@@ -258,8 +257,9 @@ export const computeVariance = functions.https.onCall(async (data, context) => {
             for (const lc of lotsToCreate) transaction.set(lc.ref, lc.data);
             for (const mov of movementsToWrite) transaction.set(mov.ref, mov.data);
 
-            const isFullyProcessed = processedLinesCount === batchLines.length && unprocessedLines.length === batchLines.length;
-            const finalStatus = isFullyProcessed ? 'POSTED' : docData.status;
+            const remaining = unprocessedLines.length - processedLinesCount;
+            const isFullyProcessed = remaining <= 0;
+            const finalStatus = isFullyProcessed ? 'POSTED' : 'LOCKED';
 
             const updateData: any = {
                 status: finalStatus,
