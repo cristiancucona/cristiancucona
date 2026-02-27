@@ -1,0 +1,51 @@
+{
+    "indexes": [
+        {
+            "collectionGroup": "lots",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "itemId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "locationId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "createdAt",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "movements",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "itemId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "createdAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "movements",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "locationId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "createdAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        }
+    ],
+    "fieldOverrides": []
+}

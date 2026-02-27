@@ -1,0 +1,44 @@
+name: Functions Tests (Emulator)
+
+on:
+  push:
+    paths:
+      - "functions/**"
+      - ".github/workflows/functions-tests.yml"
+  pull_request:
+    paths:
+      - "functions/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: functions
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "pnpm"
+          cache-dependency-path: functions/package.json # fallback locally if lockfile is missing
+
+      - name: Install deps
+        run: pnpm install
+
+      - name: Run unit + integration tests
+        env:
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+          FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
+          FIREBASE_STORAGE_EMULATOR_HOST: 127.0.0.1:9199
+          FUNCTIONS_EMULATOR: "true"
+        run: pnpm test

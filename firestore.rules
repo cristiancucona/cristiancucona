@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function: Client is attempting a write
+    function isClient() {
+      return request.auth != null;
+    }
+    
+    // Master data
+    match /items/{itemId} {
+      allow read: if isClient();
+      allow write: if isClient() && (request.auth.token.role == 'OWNER' || request.auth.token.role == 'GM' || request.auth.token.admin == true);
+    }
+    match /locations/{locationId} {
+      allow read: if isClient();
+      allow write: if isClient() && (request.auth.token.role == 'OWNER' || request.auth.token.role == 'GM' || request.auth.token.admin == true);
+    }
+    
+    // Ledger Core (The Vault - Server Only)
+    match /lots/{lotId} {
+      allow read: if isClient();
+      allow write: if false; // Server only
+    }
+    match /movements/{movementId} {
+      allow read: if isClient();
+      allow write: if false; // Server only
+    }
+    match /projections/{document=**} {
+      allow read: if isClient();
+      allow write: if false; // Server only
+    }
+    
+    // Operational Documents
+    match /documents/{docId} {
+      allow read: if isClient();
+      
+      allow create: if isClient() && request.resource.data.status == 'DRAFT';
+      
+      allow update: if isClient() 
+                    && resource.data.status == 'DRAFT'
+                    && request.resource.data.status == 'DRAFT' // Client cannot transition to POSTED
+                    && !('postedAt' in request.resource.data);
+      
+      allow delete: if false; // No deletes ever
+      
+      match /lines/{lineId} {
+        allow read: if isClient();
+        allow create, update: if isClient() && get(/databases/$(database)/documents/documents/$(docId)).data.status == 'DRAFT';
+        allow delete: if false; // No deletes ever
+      }
+    }
+    
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
